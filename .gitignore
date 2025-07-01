@@ -1,0 +1,11 @@
+# Python import cache
+__pycache__
+
+# Python virtual environment
+venv
+
+# C compilation result
+cgauss.so
+
+# Clang LSP config
+.clangd
