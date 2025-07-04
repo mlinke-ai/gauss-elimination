@@ -5,7 +5,6 @@
 
 #ifdef __AVX2__
 #include <immintrin.h>
-#define ALIGNMENT 32
 #define STRIDE 8
 #endif
 
@@ -44,9 +43,9 @@ static PyObject *cgauss_solve(PyObject *self, PyObject *args) {
 #ifdef __AVX2__
   int i, j, k, s = 0, t = 0;
   float v = 0.0;
-  __m256 f;
+  __m256 e;
   __m128 h, l;
-  float *m = (float *)_mm_malloc(size * size * sizeof(float), ALIGNMENT);
+  float *m = (float *)malloc(size * size * sizeof(float));
   if (m == NULL) {
     PyErr_SetString(PyExc_RuntimeError,
                     "Unable to allocate memory for matrix copy.");
@@ -61,9 +60,9 @@ static PyObject *cgauss_solve(PyObject *self, PyObject *args) {
     return NULL;
   }
   for (i = 0; i < size; i++) {
-    p[i] = 0;
+    p[i] = i;
   }
-  float *y = (float *)_mm_malloc(size * sizeof(float), ALIGNMENT);
+  float *y = (float *)malloc(size * sizeof(float));
   if (y == NULL) {
     PyErr_SetString(
         PyExc_RuntimeError,
@@ -87,25 +86,27 @@ static PyObject *cgauss_solve(PyObject *self, PyObject *args) {
     } else {
       for (j = i + 1; j < size; j++) {
         m[p[j] * size + i] /= m[p[i] * size + i];
-        for (k = i + 1; k < size; k++) {
-          f = _mm256_set1_ps(m[p[j] * size + i]);
-          f = _mm256_mul_ps(f, _mm256_load_ps(m + (p[i] * size + k)));
-          f = _mm256_sub_ps(_mm256_load_ps(m + (p[j] * size + k)), f);
-          _mm256_store_ps(m + (p[j] * size + k), f);
+        for (k = i + 1; k + STRIDE - 1 < size; k += STRIDE) {
+          e = _mm256_mul_ps(_mm256_set1_ps(m[p[j] * size + i]),
+                            _mm256_loadu_ps(m + (p[i] * size + k)));
+          e = _mm256_sub_ps(_mm256_loadu_ps(m + (p[j] * size + k)), e);
+          _mm256_storeu_ps(m + (p[j] * size + k), e);
+        }
+        for (; k < size; k++) {
+          m[p[j] * size + k] -= m[p[j] * size + i] * m[p[i] * size + k];
         }
       }
     }
   }
   for (i = 0; i < size; i++) {
-    for (j = 0; j < i - (i % STRIDE); j += STRIDE) {
-      f = _mm256_load_ps(m + (p[i] * size + j));
-      f = _mm256_mul_ps(f, _mm256_load_ps(y + j));
-      l = _mm256_extractf128_ps(f, 0);
-      h = _mm256_extractf128_ps(f, 1);
+    for (j = 0; j + STRIDE - 1 < i; j += STRIDE) {
+      e = _mm256_mul_ps(_mm256_loadu_ps(m + (p[i] * size + j)), _mm256_loadu_ps(y + j));
+      l = _mm256_extractf128_ps(e, 0);
+      h = _mm256_extractf128_ps(e, 1);
       l = _mm_hadd_ps(h, l);
       l = _mm_hadd_ps(l, l);
       v += _mm_cvtss_f32(l);
-      l = _mm_permute_ps(l, 0b00000010);
+      l = _mm_permute_ps(l, 0b00000001);
       v += _mm_cvtss_f32(l);
     }
     for (; j < i; j++) {
@@ -115,15 +116,14 @@ static PyObject *cgauss_solve(PyObject *self, PyObject *args) {
     v = 0.0;
   }
   for (i = size - 1; i >= 0; i--) {
-    for (j = i + 1; j < size - (size % STRIDE); j += STRIDE) {
-      f = _mm256_load_ps(m + (p[i] * size + j));
-      f = _mm256_mul_ps(f, _mm256_loadu_ps(y + j));
-      l = _mm256_extractf128_ps(f, 0);
-      h = _mm256_extractf128_ps(f, 1);
+    for (j = i + 1; j + STRIDE - 1 < size; j += STRIDE) {
+      e = _mm256_mul_ps(_mm256_loadu_ps(m + (p[i] * size + j)), _mm256_loadu_ps(x + j));
+      l = _mm256_extractf128_ps(e, 0);
+      h = _mm256_extractf128_ps(e, 1);
       l = _mm_hadd_ps(h, l);
       l = _mm_hadd_ps(l, l);
       v += _mm_cvtss_f32(l);
-      l = _mm_permute_ps(l, 0b00000010);
+      l = _mm_permute_ps(l, 0b00000001);
       v += _mm_cvtss_f32(l);
     }
     for (; j < size; j++) {
@@ -132,9 +132,9 @@ static PyObject *cgauss_solve(PyObject *self, PyObject *args) {
     x[i] = (y[i] - v) / m[p[i] * size + i];
     v = 0.0;
   }
-  _mm_free(y);
+  free(y);
   free(p);
-  _mm_free(m);
+  free(m);
 #else
   int i, j, k, s = 0, t = 0;
   float v = 0.0;

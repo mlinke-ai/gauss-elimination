@@ -9,3 +9,6 @@ cgauss.so
 
 # Clang LSP config
 .clangd
+
+# Misc files
+*.png
