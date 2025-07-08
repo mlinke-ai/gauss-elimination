@@ -1,5 +1,5 @@
 import numpy as np
-from gauss import solve as p_solve
+from pgauss import solve as p_solve
 from cgauss import solve as c_solve
 import sys
 
