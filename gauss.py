@@ -18,9 +18,8 @@ def solve(a, b):
             for j in range(i + 1, n):
                 # compute columns of L
                 m[p[j], i] /= m[p[i], i]
-                for k in range(i + 1, n):
-                    # compute rows of R
-                    m[p[j], k] -= m[p[j], i] * m[p[i], k]
+                # compute rows of R
+                m[p[j], i + 1:n] -= m[p[j], i] * m[p[i], i + 1:n]
     # forward substitution
     y = np.zeros_like(b)
     for i in range(n):
