@@ -100,7 +100,8 @@ static PyObject *cgauss_solve(PyObject *self, PyObject *args) {
   }
   for (i = 0; i < size; i++) {
     for (j = 0; j + STRIDE - 1 < i; j += STRIDE) {
-      e = _mm256_mul_ps(_mm256_loadu_ps(m + (p[i] * size + j)), _mm256_loadu_ps(y + j));
+      e = _mm256_mul_ps(_mm256_loadu_ps(m + (p[i] * size + j)),
+                        _mm256_loadu_ps(y + j));
       l = _mm256_extractf128_ps(e, 0);
       h = _mm256_extractf128_ps(e, 1);
       l = _mm_hadd_ps(h, l);
@@ -117,7 +118,8 @@ static PyObject *cgauss_solve(PyObject *self, PyObject *args) {
   }
   for (i = size - 1; i >= 0; i--) {
     for (j = i + 1; j + STRIDE - 1 < size; j += STRIDE) {
-      e = _mm256_mul_ps(_mm256_loadu_ps(m + (p[i] * size + j)), _mm256_loadu_ps(x + j));
+      e = _mm256_mul_ps(_mm256_loadu_ps(m + (p[i] * size + j)),
+                        _mm256_loadu_ps(x + j));
       l = _mm256_extractf128_ps(e, 0);
       h = _mm256_extractf128_ps(e, 1);
       l = _mm_hadd_ps(h, l);
